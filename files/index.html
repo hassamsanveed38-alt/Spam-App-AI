@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShieldSpam AI — Message Threat Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0: #0a0f1a;
+    --bg-1: #0f1826;
+    --bg-2: #131f33;
+    --line: #223049;
+    --text-hi: #eef2fb;
+    --text-mid: #a9b6cc;
+    --text-low: #6c7994;
+    --danger: #ff5252;
+    --danger-dim: #7a2020;
+    --safe: #2fd971;
+    --warn: #ffb020;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    color: var(--text-hi);
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, #1a2a4a 0%, transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, #2a1420 0%, transparent 55%),
+      var(--bg-0);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  #gridCanvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand-mark {
+    width: 34px; height: 34px;
+    border-radius: 9px;
+    background: linear-gradient(145deg, var(--danger), #b02020);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 22px rgba(255, 82, 82, 0.45);
+    flex-shrink: 0;
+  }
+  .brand-mark svg { width: 18px; height: 18px; }
+
+  .brand-name {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 17px;
+    letter-spacing: 0.2px;
+  }
+  .brand-name span { color: var(--danger); }
+
+  .status-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-low);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 5px 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .status-pill::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--safe);
+    box-shadow: 0 0 6px var(--safe);
+  }
+
+  h1 {
+    font-size: 26px;
+    line-height: 1.25;
+    margin: 0 0 8px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+  }
+  .lede {
+    color: var(--text-mid);
+    font-size: 14.5px;
+    line-height: 1.6;
+    margin: 0 0 28px;
+    max-width: 50ch;
+  }
+
+  .card {
+    background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+  }
+
+  .card + .card { margin-top: 16px; }
+
+  .card-label {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-low);
+    margin: 0 0 12px;
+    letter-spacing: 0.3px;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 130px;
+    resize: vertical;
+    background: var(--bg-0);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--text-hi);
+    font-family: var(--sans);
+    font-size: 14.5px;
+    line-height: 1.55;
+    padding: 13px 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  textarea:focus { border-color: #3a4d70; }
+  textarea::placeholder { color: var(--text-low); }
+
+  .analyze-row {
+    display: flex;
+    justify-content: center;
+    margin: 26px 0;
+  }
+
+  .analyze-btn {
+    position: relative;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 15px;
+    color: white;
+    background: linear-gradient(135deg, #ff5252, #d61f3c);
+    border: none;
+    border-radius: 14px;
+    padding: 15px 40px;
+    cursor: pointer;
+    box-shadow: 0 8px 26px rgba(255, 82, 82, 0.35), 0 0 0 1px rgba(255,255,255,0.06) inset;
+    transition: transform 0.12s ease, box-shadow 0.2s ease;
+    animation: floaty 3.2s ease-in-out infinite;
+  }
+  .analyze-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 30px rgba(255,82,82,0.45); }
+  .analyze-btn:active { transform: translateY(1px) scale(0.98); }
+  .analyze-btn:disabled { opacity: 0.6; cursor: default; animation: none; }
+
+  @keyframes floaty {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  .results { display: none; }
+  .results.show { display: block; animation: fadeUp 0.4s ease; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .meter-row {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+  }
+
+  .meter-wrap { position: relative; width: 112px; height: 112px; flex-shrink: 0; }
+  .meter-wrap svg { transform: rotate(-90deg); }
+  .meter-track { fill: none; stroke: var(--line); stroke-width: 10; }
+  .meter-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.7s cubic-bezier(.25,.9,.3,1), stroke 0.4s; }
+  .meter-num {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-weight: 600; font-size: 22px;
+  }
+
+  .verdict-block .v-title {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--text-low);
+    margin-bottom: 4px;
+  }
+  .verdict-block .v-value {
+    font-size: 19px;
+    font-weight: 700;
+  }
+  .verdict-block .v-sub {
+    font-size: 13px;
+    color: var(--text-mid);
+    margin-top: 4px;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .chip {
+    font-size: 12.5px;
+    color: var(--text-hi);
+    background: rgba(255, 82, 82, 0.1);
+    border: 1px solid rgba(255, 82, 82, 0.25);
+    border-radius: 20px;
+    padding: 6px 12px;
+  }
+  .chip.safe {
+    background: rgba(47, 217, 113, 0.08);
+    border-color: rgba(47, 217, 113, 0.25);
+  }
+  .chip.warn {
+    background: rgba(255, 176, 32, 0.1);
+    border-color: rgba(255, 176, 32, 0.3);
+  }
+
+  .signals-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 18px;
+  }
+  .sig {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 7px;
+  }
+  .sig .k { color: var(--text-mid); }
+  .sig .v { font-family: var(--mono); color: var(--text-hi); font-weight: 500; }
+
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px; color: var(--text-mid);
+    font-family: var(--mono);
+  }
+  .history-item b { color: var(--text-hi); font-family: var(--sans); }
+  .history-item .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    font-family: var(--sans); font-weight: 600;
+  }
+  .badge.spam { background: rgba(255,82,82,0.15); color: #ff8080; }
+  .badge.safe { background: rgba(47,217,113,0.15); color: #6bf0a0; }
+  .badge.suspicious { background: rgba(255,176,32,0.15); color: #ffcb66; }
+
+  .empty-hist { color: var(--text-low); font-size: 13px; }
+
+  footer {
+    text-align: center;
+    color: var(--text-low);
+    font-size: 12px;
+    margin-top: 40px;
+    font-family: var(--mono);
+  }
+
+  @media (max-width: 480px) {
+    .signals-grid { grid-template-columns: 1fr; }
+    h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gridCanvas"></canvas>
+
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L4 5V11C4 16.5 7.4 20.7 12 22C16.6 20.7 20 16.5 20 11V5L12 2Z" fill="white"/>
+        </svg>
+      </div>
+      <div class="brand-name">Shield<span>Spam</span> AI</div>
+    </div>
+    <div class="status-pill">backend online</div>
+  </header>
+
+  <h1>Paste a message. Find out if it's a scam.</h1>
+  <p class="lede">Checks links, phone numbers, keywords and text patterns against the same detection rules as the desktop app — scored by the live FastAPI backend.</p>
+
+  <div class="card">
+    <p class="card-label">MESSAGE</p>
+    <textarea id="messageInput" placeholder="Paste an email, SMS, or WhatsApp message here..."></textarea>
+  </div>
+
+  <div class="analyze-row">
+    <button class="analyze-btn" id="analyzeBtn">Analyze &amp; Detect</button>
+  </div>
+
+  <div class="results" id="results">
+
+    <div class="card">
+      <p class="card-label">RISK SCORE &amp; VERDICT</p>
+      <div class="meter-row">
+        <div class="meter-wrap">
+          <svg width="112" height="112" viewBox="0 0 112 112">
+            <circle class="meter-track" cx="56" cy="56" r="48"/>
+            <circle class="meter-fill" id="meterFill" cx="56" cy="56" r="48"
+                    stroke-dasharray="301.6" stroke-dashoffset="301.6"/>
+          </svg>
+          <div class="meter-num" id="meterNum">0%</div>
+        </div>
+        <div class="verdict-block">
+          <div class="v-title">VERDICT</div>
+          <div class="v-value" id="verdictText">—</div>
+          <div class="v-sub" id="verdictSub"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-label">DETECTION REASONS</p>
+      <div class="chips" id="reasonChips"></div>
+    </div>
+
+    <div class="card">
+      <p class="card-label">EXTRACTED SIGNALS</p>
+      <div class="signals-grid" id="signalsGrid"></div>
+    </div>
+
+    <div class="card">
+      <p class="card-label">SCAN HISTORY</p>
+      <div class="history-list" id="historyList">
+        <div class="empty-hist">No scans yet this session.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>ShieldSpam AI — web edition · scored by the FastAPI backend · nothing is stored after scoring</footer>
+</div>
+
+<script>
+/* ============ Background cyber-grid canvas (decorative) ============ */
+(function () {
+  const canvas = document.getElementById('gridCanvas');
+  const ctx = canvas.getContext('2d');
+  let w, h, nodes = [];
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+    const count = Math.floor((w * h) / 45000);
+    nodes = Array.from({ length: count }, () => ({
+      x: Math.random() * w, y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.15, vy: (Math.random() - 0.5) * 0.15
+    }));
+  }
+  function tick() {
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(120,150,200,0.12)';
+    ctx.fillStyle = 'rgba(150,180,230,0.5)';
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < 0 || n.x > w) n.vx *= -1;
+      if (n.y < 0 || n.y > h) n.vy *= -1;
+      for (let j = i + 1; j < nodes.length; j++) {
+        const m = nodes[j];
+        const dx = n.x - m.x, dy = n.y - m.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 130) {
+          ctx.globalAlpha = 1 - dist / 130;
+          ctx.beginPath(); ctx.moveTo(n.x, n.y); ctx.lineTo(m.x, m.y); ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.arc(n.x, n.y, 1.4, 0, Math.PI * 2); ctx.fill();
+    }
+    requestAnimationFrame(tick);
+  }
+  window.addEventListener('resize', resize);
+  resize(); tick();
+})();
+
+/* ============ UI wiring ============ */
+
+const messageInput = document.getElementById('messageInput');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const resultsEl = document.getElementById('results');
+const meterFill = document.getElementById('meterFill');
+const meterNum = document.getElementById('meterNum');
+const verdictText = document.getElementById('verdictText');
+const verdictSub = document.getElementById('verdictSub');
+const reasonChips = document.getElementById('reasonChips');
+const signalsGrid = document.getElementById('signalsGrid');
+const historyList = document.getElementById('historyList');
+
+const CIRC = 2 * Math.PI * 48;
+let history = [];
+
+function colorForScore(pct) {
+  if (pct < 30) return getComputedStyle(document.documentElement).getPropertyValue('--safe').trim();
+  if (pct < 60) return getComputedStyle(document.documentElement).getPropertyValue('--warn').trim();
+  return getComputedStyle(document.documentElement).getPropertyValue('--danger').trim();
+}
+
+function renderSignals(sig) {
+  const labels = {
+    linkCount: "Links", phoneCount: "Phone numbers", hasSuspiciousPhonePattern: "Fake-looking phone",
+    shortenerCount: "Link shorteners", ipUrlCount: "Raw-IP links", emailCount: "Emails",
+    keywordCount: "Spam keywords", exclamationCount: "Exclamations", capsRatio: "Caps ratio",
+    wordCount: "Word count", entropy: "Entropy", hasSuspiciousTLD: "Bad TLD", hasHTML: "HTML tags",
+    exclamationRatio: "Exclaim ratio"
+  };
+  signalsGrid.innerHTML = '';
+  for (const key in labels) {
+    let val = sig[key];
+    if (typeof val === 'boolean') val = val ? 'Yes' : 'No';
+    else if (typeof val === 'number' && !Number.isInteger(val)) val = val.toFixed(3);
+    const div = document.createElement('div');
+    div.className = 'sig';
+    div.innerHTML = `<span class="k">${labels[key]}</span><span class="v">${val}</span>`;
+    signalsGrid.appendChild(div);
+  }
+}
+
+function renderHistory() {
+  if (history.length === 0) {
+    historyList.innerHTML = '<div class="empty-hist">No scans yet this session.</div>';
+    return;
+  }
+  const badgeLabel = { spam: 'Spam', suspicious: 'Suspicious', safe: 'Safe' };
+  historyList.innerHTML = history.slice(0, 5).map(h => `
+    <div class="history-item">
+      <span>${h.time} — <b>${h.score}%</b></span>
+      <span class="badge ${h.tier}">${badgeLabel[h.tier]}</span>
+    </div>
+  `).join('');
+}
+
+analyzeBtn.addEventListener('click', async () => {
+  const text = messageInput.value.trim();
+  if (!text) {
+    messageInput.focus();
+    messageInput.style.borderColor = 'var(--danger)';
+    setTimeout(() => messageInput.style.borderColor = '', 900);
+    return;
+  }
+
+  analyzeBtn.disabled = true;
+  analyzeBtn.textContent = 'Analyzing...';
+
+  try {
+    const res = await fetch('/api/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) throw new Error('scan failed');
+    const data = await res.json();
+    const { score, tier, reasons, signals: sig } = data;
+
+    resultsEl.classList.add('show');
+
+    const offset = CIRC - (CIRC * score) / 100;
+    meterFill.style.stroke = colorForScore(score);
+    meterFill.style.strokeDashoffset = offset;
+    meterNum.textContent = Math.round(score) + '%';
+
+    const verdictCopy = {
+      spam: { label: 'High Risk Spam', color: 'var(--danger)', sub: 'This message shows strong scam/phishing indicators.' },
+      suspicious: { label: 'Suspicious', color: 'var(--warn)', sub: 'Some risk signals found — treat with caution.' },
+      safe: { label: 'Safe / Ham', color: 'var(--safe)', sub: 'No strong scam indicators found.' },
+    }[tier];
+
+    verdictText.textContent = verdictCopy.label;
+    verdictText.style.color = verdictCopy.color;
+    verdictSub.textContent = verdictCopy.sub;
+
+    const chipClass = tier === 'spam' ? '' : (tier === 'suspicious' ? 'warn' : 'safe');
+    reasonChips.innerHTML = reasons.length
+      ? reasons.map(r => `<span class="chip ${chipClass}">${r}</span>`).join('')
+      : `<span class="chip safe">No red flags detected</span>`;
+
+    renderSignals(sig);
+
+    history.unshift({
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      score: Math.round(score),
+      tier
+    });
+    if (history.length > 5) history = history.slice(0, 5);
+    renderHistory();
+  } catch (e) {
+    verdictText.textContent = 'Scan failed';
+    verdictText.style.color = 'var(--danger)';
+    verdictSub.textContent = 'Could not reach the backend. Try again in a moment.';
+    resultsEl.classList.add('show');
+  } finally {
+    analyzeBtn.disabled = false;
+    analyzeBtn.textContent = 'Analyze & Detect';
+  }
+});
+</script>
+
+</body>
+</html>
